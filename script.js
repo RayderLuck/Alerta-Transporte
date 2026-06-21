@@ -167,4 +167,19 @@ function simularOnibus(pontoA, pontoB) {
     show: false
   }).addTo(map);
 
-  let onibus = L.marker(pontosImportantes[pontoA]).addTo(map).bindPopup("Ônibus em
+  let onibus = L.marker(pontosImportantes[pontoA]).addTo(map).bindPopup("Ônibus em movimento");
+
+  rotaOnibus.on('routesfound', function(e) {
+    const coords = e.routes[0].coordinates;
+    let i = 0;
+    const intervalo = setInterval(() => {
+      onibus.setLatLng([coords[i].lat, coords[i].lng]);
+      i++;
+      if (i >= coords.length) {
+        clearInterval(intervalo);
+        onibus.bindPopup("🚍 Ônibus chegou ao destino!").openPopup();
+      }
+    }, 500);
+  });
+}
+
