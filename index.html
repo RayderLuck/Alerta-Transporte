@@ -174,4 +174,10 @@
             }
           }
 
-          resultado.innerText = "📍 Ponto mais próximo: " + ponto
+          resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo + " (" + menorDist.toFixed(0) + " m)";
+
+          if (rota) map.removeControl(rota);
+          rota = L.Routing.control({
+            waypoints: [
+              L.latLng(lat, lng),
+              L.latLng(coordsMaisProximo[0
