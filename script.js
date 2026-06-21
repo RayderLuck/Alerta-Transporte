@@ -139,4 +139,8 @@ function simularOnibus(pontoA, pontoB) {
       i++;
       if (i >= coords.length) {
         clearInterval(intervalo);
-        onibus.bindPopup("🚍 Ônibus chegou ao destino!
+        onibus.bindPopup("🚍 Ônibus chegou ao destino!").openPopup();
+      }
+    }, 500);
+  });
+}
