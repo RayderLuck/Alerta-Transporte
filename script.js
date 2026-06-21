@@ -81,8 +81,6 @@ const linhaSelect = document.getElementById("linhaSelect");
 
 let usuarioMarker = null;
 let pontoMaisProximo = null;
-let onibus;
-let intervaloCronometro = null;
 
 // função para calcular próximo horário
 function proximoHorario(linha, ponto) {
@@ -169,7 +167,4 @@ function simularOnibus(pontoA, pontoB) {
     show: false
   }).addTo(map);
 
-  let onibus = L.marker(pontosImportantes[pontoA]).addTo(map).bindPopup("Ônibus em movimento");
-
-  rotaOnibus.on('routesfound', function(e) {
-    const coords = e
+  let onibus = L.marker(pontosImportantes[pontoA]).addTo(map).bindPopup("Ônibus em
