@@ -4,8 +4,10 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Protótipo Transporte com GPS</title>
+  <!-- CSS do Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
+  <!-- Seu CSS -->
   <link rel="stylesheet" href="style.css"/>
 </head>
 <body>
@@ -23,10 +25,14 @@
 
   <button onclick="ativarGPS()">📍 Ativar GPS em tempo real</button>
 
+  <!-- Div do mapa -->
   <div id="map"></div>
+
+  <!-- Resultados -->
   <div id="resultado">Clique em "Ativar GPS" e escolha uma linha.</div>
   <div id="cronometro"></div>
 
+  <!-- Scripts: ordem importa -->
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
   <script src="script.js"></script>
