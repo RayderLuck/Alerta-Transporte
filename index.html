@@ -18,7 +18,7 @@
 </head>
 <body>
   <h1>🚍 Protótipo Alerta de Transporte</h1>
-  <p>Escolha a linha e o ponto para ver os horários e simular o ônibus chegando.</p>
+  <p>Escolha a linha e ative o GPS para ver os horários no ponto mais próximo.</p>
 
   <div>
     <label for="linhaSelect">Linha:</label>
@@ -27,21 +27,12 @@
       <option value="cabo-buzios">Cabo Frio ↔ Búzios</option>
       <option value="cabo-tangara">Cabo Frio ↔ Tangará</option>
     </select>
-
-    <label for="pontoSelect">Ponto:</label>
-    <select id="pontoSelect">
-      <option value="-22.880,-42.018">Rodoviária</option>
-      <option value="-22.875,-42.010">Centro</option>
-      <option value="-22.890,-42.000">Praia do Forte</option>
-      <option value="-22.870,-42.030">Tangará</option>
-      <option value="-22.850,-42.020">Shopping Park Lagos</option>
-    </select>
   </div>
 
   <button onclick="ativarGPS()">📍 Usar GPS em tempo real</button>
 
   <div id="map"></div>
-  <div id="resultado">Selecione linha e ponto para ver horários.</div>
+  <div id="resultado">Ative o GPS e escolha uma linha.</div>
   <div id="cronometro"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
@@ -53,9 +44,19 @@
     }).addTo(map);
 
     const horarios = {
-      "cabo-arraial": ["08:00", "10:30", "13:00"],
-      "cabo-buzios": ["09:00", "11:30", "14:00"],
-      "cabo-tangara": ["07:30", "12:00", "17:00"]
+      "cabo-arraial": {
+        "Rodoviária": ["08:00", "10:30", "13:00"],
+        "Centro": ["08:10", "10:40", "13:10"],
+        "Praia do Forte": ["08:20", "10:50", "13:20"]
+      },
+      "cabo-buzios": {
+        "Rodoviária": ["09:00", "11:30", "14:00"],
+        "Shopping Park Lagos": ["09:15", "11:45", "14:15"]
+      },
+      "cabo-tangara": {
+        "Rodoviária": ["07:30", "12:00", "17:00"],
+        "Tangará": ["07:50", "12:20", "17:20"]
+      }
     };
 
     const pontos = {
@@ -73,30 +74,48 @@
     const resultado = document.getElementById("resultado");
     const cronometro = document.getElementById("cronometro");
     const linhaSelect = document.getElementById("linhaSelect");
-    const pontoSelect = document.getElementById("pontoSelect");
 
     let onibus;
     let usuarioMarker = null;
     let rota = null;
     let pontoEscolhidoMarker = null;
     let intervaloCronometro = null;
+    let pontoMaisProximo = null;
+
+    function proximoHorario(linha, ponto) {
+      const agora = new Date();
+      const lista = horarios[linha][ponto] || [];
+      for (let h of lista) {
+        const [hora, minuto] = h.split(":");
+        const horario = new Date();
+        horario.setHours(hora, minuto, 0);
+        if (horario > agora) {
+          return h;
+        }
+      }
+      return "Nenhum ônibus restante hoje";
+    }
 
     function atualizarMapa() {
       const linha = linhaSelect.value;
-      const pontoCoords = pontoSelect.value.split(",");
-      const pontoLatLng = [parseFloat(pontoCoords[0]), parseFloat(pontoCoords[1])];
+      if (!pontoMaisProximo) {
+        resultado.innerText = "Ative o GPS primeiro para localizar o ponto.";
+        return;
+      }
+      const pontoLatLng = pontos[pontoMaisProximo];
 
       if (pontoEscolhidoMarker) map.removeLayer(pontoEscolhidoMarker);
-      pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto escolhido").openPopup();
+      pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto: " + pontoMaisProximo).openPopup();
 
-      resultado.innerText = "Próximos horários: " + horarios[linha].join(", ");
+      const prox = proximoHorario(linha, pontoMaisProximo);
+      resultado.innerText = "Linha " + linha + " no ponto " + pontoMaisProximo + ": " + (horarios[linha][pontoMaisProximo] || []).join(", ") + " | Próximo ônibus: " + prox;
 
       if (onibus) map.removeLayer(onibus);
       let lat = pontoLatLng[0] - 0.01;
       let lng = pontoLatLng[1] - 0.01;
       onibus = L.marker([lat, lng]).addTo(map).bindPopup("Ônibus " + linha);
 
-      let segundos = 20; // tempo estimado até chegada
+      let segundos = 20;
       cronometro.innerText = "⏱ Tempo estimado até chegada: " + segundos + "s";
 
       if (intervaloCronometro) clearInterval(intervaloCronometro);
@@ -122,7 +141,6 @@
     }
 
     linhaSelect.addEventListener("change", atualizarMapa);
-    pontoSelect.addEventListener("change", atualizarMapa);
 
     function calcularDistancia(lat1, lon1, lat2, lon2) {
       const R = 6371000;
@@ -145,7 +163,6 @@
           usuarioMarker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Você está aqui").openPopup();
 
           let menorDist = Infinity;
-          let pontoMaisProximo = null;
           let coordsMaisProximo = null;
 
           for (const [nome, coords] of Object.entries(pontos)) {
@@ -157,22 +174,4 @@
             }
           }
 
-          resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo + " (" + menorDist.toFixed(0) + " m)";
-
-          if (rota) map.removeControl(rota);
-          rota = L.Routing.control({
-            waypoints: [
-              L.latLng(lat, lng),
-              L.latLng(coordsMaisProximo[0], coordsMaisProximo[1])
-            ],
-            routeWhileDragging: false,
-            show: false
-          }).addTo(map);
-        });
-      } else {
-        alert("GPS não disponível neste dispositivo.");
-      }
-    }
-  </script>
-</body>
-</html>
+          resultado.innerText = "📍 Ponto mais próximo: " + ponto
