@@ -36,18 +36,18 @@ for (const [nome, coords] of Object.entries(pontos)) {
 const resultado = document.getElementById("resultado");
 const cronometro = document.getElementById("cronometro");
 const linhaSelect = document.getElementById("linhaSelect");
-const pontoSelect = document.getElementById("pontoSelect");
 
 let onibus;
 let usuarioMarker = null;
 let rota = null;
 let pontoEscolhidoMarker = null;
 let intervaloCronometro = null;
+let pontoMaisProximo = null; // guardamos o ponto calculado pelo GPS
 
 // função para calcular próximo horário
 function proximoHorario(linha, ponto) {
   const agora = new Date();
-  const lista = horarios[linha][ponto];
+  const lista = horarios[linha][ponto] || [];
   for (let h of lista) {
     const [hora, minuto] = h.split(":");
     const horario = new Date();
@@ -61,14 +61,17 @@ function proximoHorario(linha, ponto) {
 
 function atualizarMapa() {
   const linha = linhaSelect.value;
-  const ponto = pontoSelect.value;
-  const pontoLatLng = pontos[ponto];
+  if (!pontoMaisProximo) {
+    resultado.innerText = "Ative o GPS primeiro para localizar o ponto.";
+    return;
+  }
+  const pontoLatLng = pontos[pontoMaisProximo];
 
   if (pontoEscolhidoMarker) map.removeLayer(pontoEscolhidoMarker);
-  pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto escolhido").openPopup();
+  pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto: " + pontoMaisProximo).openPopup();
 
-  const prox = proximoHorario(linha, ponto);
-  resultado.innerText = "Horários no ponto " + ponto + ": " + horarios[linha][ponto].join(", ") + " | Próximo ônibus: " + prox;
+  const prox = proximoHorario(linha, pontoMaisProximo);
+  resultado.innerText = "Linha " + linha + " no ponto " + pontoMaisProximo + ": " + (horarios[linha][pontoMaisProximo] || []).join(", ") + " | Próximo ônibus: " + prox;
 
   if (onibus) map.removeLayer(onibus);
   let lat = pontoLatLng[0] - 0.01;
@@ -101,7 +104,6 @@ function atualizarMapa() {
 }
 
 linhaSelect.addEventListener("change", atualizarMapa);
-pontoSelect.addEventListener("change", atualizarMapa);
 
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371000;
@@ -124,7 +126,6 @@ function ativarGPS() {
       usuarioMarker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Você está aqui").openPopup();
 
       let menorDist = Infinity;
-      let pontoMaisProximo = null;
       let coordsMaisProximo = null;
 
       for (const [nome, coords] of Object.entries(pontos)) {
