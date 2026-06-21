@@ -28,7 +28,7 @@ const pontos = {
   "Praia do Forte": [-22.890, -42.000],
   "Tangará": [-22.870, -42.030],
   "Shopping Park Lagos": [-22.850, -42.020],
-  "Praça Jardim Esperança": [-22.889, -42.015]
+  "Praça Jardim Esperança": [-22.841016921684087, -42.025246904469284]
 };
 
 // adiciona todos os pontos no mapa
