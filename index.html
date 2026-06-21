@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Protótipo Transporte Público</title>
+  <title>Protótipo Transporte com GPS</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
   <style>
-    body { background:#111; color:#0f0; font-family:Arial; text-align:center; margin:0; padding:20px; }
+    body { background:#111; color:#0f0; font-family:Arial; text-align:center; }
     h1 { color:#ff0; }
     #map { width:100%; height:300px; max-width:800px; margin:20px auto; border:2px solid #0f0; border-radius:8px; }
     #resultado { margin-top:20px; font-size:1.2rem; color:#ff0; }
@@ -17,8 +16,8 @@
   </style>
 </head>
 <body>
-  <h1>🚍 Protótipo Alerta de Transporte</h1>
-  <p>Escolha a linha e ative o GPS para ver os horários no ponto mais próximo.</p>
+  <h1>🚍 Protótipo Transporte com GPS</h1>
+  <p>Ative o GPS e escolha a linha para ver os horários no ponto mais próximo.</p>
 
   <div>
     <label for="linhaSelect">Linha:</label>
@@ -29,20 +28,20 @@
     </select>
   </div>
 
-  <button onclick="ativarGPS()">📍 Usar GPS em tempo real</button>
+  <button onclick="ativarGPS()">📍 Ativar GPS em tempo real</button>
 
   <div id="map"></div>
-  <div id="resultado">Ative o GPS e escolha uma linha.</div>
+  <div id="resultado">Clique em "Ativar GPS" e escolha uma linha.</div>
   <div id="cronometro"></div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
   <script>
     const map = L.map('map').setView([-22.880, -42.018], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap'
     }).addTo(map);
 
+    // horários por linha e ponto
     const horarios = {
       "cabo-arraial": {
         "Rodoviária": ["08:00", "10:30", "13:00"],
@@ -75,12 +74,11 @@
     const cronometro = document.getElementById("cronometro");
     const linhaSelect = document.getElementById("linhaSelect");
 
-    let onibus;
     let usuarioMarker = null;
-    let rota = null;
-    let pontoEscolhidoMarker = null;
-    let intervaloCronometro = null;
+    let pontoProximoMarker = null;
     let pontoMaisProximo = null;
+    let onibus;
+    let intervaloCronometro = null;
 
     function proximoHorario(linha, ponto) {
       const agora = new Date();
@@ -104,8 +102,8 @@
       }
       const pontoLatLng = pontos[pontoMaisProximo];
 
-      if (pontoEscolhidoMarker) map.removeLayer(pontoEscolhidoMarker);
-      pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto: " + pontoMaisProximo).openPopup();
+      if (pontoProximoMarker) map.removeLayer(pontoProximoMarker);
+      pontoProximoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto: " + pontoMaisProximo).openPopup();
 
       const prox = proximoHorario(linha, pontoMaisProximo);
       resultado.innerText = "Linha " + linha + " no ponto " + pontoMaisProximo + ": " + (horarios[linha][pontoMaisProximo] || []).join(", ") + " | Próximo ônibus: " + prox;
@@ -125,17 +123,6 @@
         if (segundos <= 0) {
           clearInterval(intervaloCronometro);
           cronometro.innerText = "✅ Ônibus chegou!";
-        }
-      }, 1000);
-
-      const intervalo = setInterval(() => {
-        lat += 0.001;
-        lng += 0.001;
-        onibus.setLatLng([lat, lng]);
-
-        if (lat >= pontoLatLng[0]) {
-          clearInterval(intervalo);
-          alert("🚨 Ônibus chegou ao ponto!");
         }
       }, 1000);
     }
@@ -175,9 +162,11 @@
           }
 
           resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo + " (" + menorDist.toFixed(0) + " m)";
-
-          if (rota) map.removeControl(rota);
-          rota = L.Routing.control({
-            waypoints: [
-              L.latLng(lat, lng),
-              L.latLng(coordsMaisProximo[0],
+        });
+      } else {
+        alert("GPS não disponível neste dispositivo.");
+      }
+    }
+  </script>
+</body>
+</html>
