@@ -3,12 +3,13 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap'
 }).addTo(map);
 
-// horários detalhados por linha e ponto
+// horários por linha e ponto
 const horarios = {
   "cabo-arraial": {
     "Rodoviária": ["08:00", "10:30", "13:00"],
     "Centro": ["08:10", "10:40", "13:10"],
-    "Praia do Forte": ["08:20", "10:50", "13:20"]
+    "Praia do Forte": ["08:20", "10:50", "13:20"],
+    "Praça Jardim Esperança": ["08:25", "10:55", "13:25"]
   },
   "cabo-buzios": {
     "Rodoviária": ["09:00", "11:30", "14:00"],
@@ -20,15 +21,17 @@ const horarios = {
   }
 };
 
+// pontos cadastrados
 const pontos = {
   "Rodoviária": [-22.880, -42.018],
   "Centro": [-22.875, -42.010],
   "Praia do Forte": [-22.890, -42.000],
   "Tangará": [-22.870, -42.030],
-  "Shopping Park Lagos": [-22.850, -42.020]
+  "Shopping Park Lagos": [-22.850, -42.020],
+  "Praça Jardim Esperança": [-22.889, -42.015]
 };
 
-// adiciona todos os pontos com marcadores menores
+// adiciona todos os pontos no mapa
 for (const [nome, coords] of Object.entries(pontos)) {
   L.circleMarker(coords, {radius:5, color:'orange'}).addTo(map).bindPopup("Ponto: " + nome);
 }
@@ -37,12 +40,10 @@ const resultado = document.getElementById("resultado");
 const cronometro = document.getElementById("cronometro");
 const linhaSelect = document.getElementById("linhaSelect");
 
-let onibus;
 let usuarioMarker = null;
-let rota = null;
-let pontoEscolhidoMarker = null;
+let pontoMaisProximo = null;
+let onibus;
 let intervaloCronometro = null;
-let pontoMaisProximo = null; // guardamos o ponto calculado pelo GPS
 
 // função para calcular próximo horário
 function proximoHorario(linha, ponto) {
@@ -59,6 +60,7 @@ function proximoHorario(linha, ponto) {
   return "Nenhum ônibus restante hoje";
 }
 
+// atualizar mapa com linha escolhida
 function atualizarMapa() {
   const linha = linhaSelect.value;
   if (!pontoMaisProximo) {
@@ -67,44 +69,16 @@ function atualizarMapa() {
   }
   const pontoLatLng = pontos[pontoMaisProximo];
 
-  if (pontoEscolhidoMarker) map.removeLayer(pontoEscolhidoMarker);
-  pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto: " + pontoMaisProximo).openPopup();
-
   const prox = proximoHorario(linha, pontoMaisProximo);
   resultado.innerText = "Linha " + linha + " no ponto " + pontoMaisProximo + ": " + (horarios[linha][pontoMaisProximo] || []).join(", ") + " | Próximo ônibus: " + prox;
 
-  if (onibus) map.removeLayer(onibus);
-  let lat = pontoLatLng[0] - 0.01;
-  let lng = pontoLatLng[1] - 0.01;
-  onibus = L.marker([lat, lng]).addTo(map).bindPopup("Ônibus " + linha);
-
-  let segundos = 20; // tempo estimado até chegada
-  cronometro.innerText = "⏱ Tempo estimado até chegada: " + segundos + "s";
-
-  if (intervaloCronometro) clearInterval(intervaloCronometro);
-  intervaloCronometro = setInterval(() => {
-    segundos--;
-    cronometro.innerText = "⏱ Tempo estimado até chegada: " + segundos + "s";
-    if (segundos <= 0) {
-      clearInterval(intervaloCronometro);
-      cronometro.innerText = "✅ Ônibus chegou!";
-    }
-  }, 1000);
-
-  const intervalo = setInterval(() => {
-    lat += 0.001;
-    lng += 0.001;
-    onibus.setLatLng([lat, lng]);
-
-    if (lat >= pontoLatLng[0]) {
-      clearInterval(intervalo);
-      alert("🚨 Ônibus chegou ao ponto!");
-    }
-  }, 1000);
+  // simulação de ônibus indo até outro ponto
+  simularOnibus(pontoMaisProximo, "Rodoviária");
 }
 
 linhaSelect.addEventListener("change", atualizarMapa);
 
+// calcular distância entre coordenadas
 function calcularDistancia(lat1, lon1, lat2, lon2) {
   const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -116,6 +90,7 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
+// ativar GPS
 function ativarGPS() {
   if (navigator.geolocation) {
     navigator.geolocation.watchPosition(pos => {
@@ -126,30 +101,42 @@ function ativarGPS() {
       usuarioMarker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Você está aqui").openPopup();
 
       let menorDist = Infinity;
-      let coordsMaisProximo = null;
-
       for (const [nome, coords] of Object.entries(pontos)) {
         const dist = calcularDistancia(lat, lng, coords[0], coords[1]);
         if (dist < menorDist) {
           menorDist = dist;
           pontoMaisProximo = nome;
-          coordsMaisProximo = coords;
         }
       }
 
       resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo + " (" + menorDist.toFixed(0) + " m)";
-
-      if (rota) map.removeControl(rota);
-      rota = L.Routing.control({
-        waypoints: [
-          L.latLng(lat, lng),
-          L.latLng(coordsMaisProximo[0], coordsMaisProximo[1])
-        ],
-        routeWhileDragging: false,
-        show: false
-      }).addTo(map);
     });
   } else {
     alert("GPS não disponível neste dispositivo.");
   }
 }
+
+// simular ônibus com trajeto real
+function simularOnibus(pontoA, pontoB) {
+  const rotaOnibus = L.Routing.control({
+    waypoints: [
+      L.latLng(pontos[pontoA][0], pontos[pontoA][1]),
+      L.latLng(pontos[pontoB][0], pontos[pontoB][1])
+    ],
+    routeWhileDragging: false,
+    addWaypoints: false,
+    draggableWaypoints: false,
+    show: false
+  }).addTo(map);
+
+  let onibus = L.marker(pontos[pontoA]).addTo(map).bindPopup("Ônibus em movimento");
+
+  rotaOnibus.on('routesfound', function(e) {
+    const coords = e.routes[0].coordinates;
+    let i = 0;
+    const intervalo = setInterval(() => {
+      onibus.setLatLng([coords[i].lat, coords[i].lng]);
+      i++;
+      if (i >= coords.length) {
+        clearInterval(intervalo);
+        onibus.bindPopup("🚍 Ônibus chegou ao destino!
