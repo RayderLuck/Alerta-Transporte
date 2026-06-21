@@ -5,45 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Protótipo Transporte Público</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #0f0;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1 {
-      color: #ff0;
-    }
-
-    label {
-      margin: 10px;
-      display: inline-block;
-    }
-
-    select {
-      margin: 10px;
-      padding: 5px;
-      border-radius: 5px;
-    }
-
-    #map {
-      width: 100%;
-      height: 300px;       /* altura reduzida */
-      max-width: 800px;    /* limite de largura */
-      margin: 20px auto;   /* centraliza */
-      border: 2px solid #0f0;
-      border-radius: 8px;
-    }
-
-    #resultado {
-      margin-top: 20px;
-      font-size: 1.2rem;
-      color: #ff0;
-    }
+    body { background:#111; color:#0f0; font-family:Arial; text-align:center; margin:0; padding:20px; }
+    h1 { color:#ff0; }
+    #map { width:100%; height:300px; max-width:800px; margin:20px auto; border:2px solid #0f0; border-radius:8px; }
+    #resultado { margin-top:20px; font-size:1.2rem; color:#ff0; }
+    select, button { margin:10px; padding:8px; border:none; border-radius:5px; cursor:pointer; }
+    button { background:#0f0; color:#111; font-weight:bold; }
   </style>
 </head>
 <body>
@@ -65,10 +34,13 @@
     </select>
   </div>
 
+  <button onclick="ativarGPS()">📍 Usar GPS em tempo real</button>
+
   <div id="map"></div>
   <div id="resultado">Selecione linha e ponto para ver horários.</div>
 
   <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
   <script>
     const map = L.map('map').setView([-22.880, -42.018], 13);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -80,11 +52,23 @@
       "cabo-buzios": ["09:00", "11:30", "14:00"]
     };
 
+    const pontos = {
+      "Rodoviária": [-22.880, -42.018],
+      "Centro": [-22.875, -42.010],
+      "Praia do Forte": [-22.890, -42.000]
+    };
+
+    for (const [nome, coords] of Object.entries(pontos)) {
+      L.marker(coords).addTo(map).bindPopup("Ponto: " + nome);
+    }
+
     const resultado = document.getElementById("resultado");
     const linhaSelect = document.getElementById("linhaSelect");
     const pontoSelect = document.getElementById("pontoSelect");
 
     let onibus;
+    let usuarioMarker = null;
+    let rota = null;
 
     function atualizarMapa() {
       const linha = linhaSelect.value;
@@ -114,6 +98,47 @@
 
     linhaSelect.addEventListener("change", atualizarMapa);
     pontoSelect.addEventListener("change", atualizarMapa);
+
+    function ativarGPS() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          if (usuarioMarker) map.removeLayer(usuarioMarker);
+          usuarioMarker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Você está aqui").openPopup();
+
+          // calcular ponto mais próximo
+          let menorDist = Infinity;
+          let pontoMaisProximo = null;
+          let coordsMaisProximo = null;
+
+          for (const [nome, coords] of Object.entries(pontos)) {
+            const dist = Math.sqrt(Math.pow(lat - coords[0], 2) + Math.pow(lng - coords[1], 2));
+            if (dist < menorDist) {
+              menorDist = dist;
+              pontoMaisProximo = nome;
+              coordsMaisProximo = coords;
+            }
+          }
+
+          resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo;
+
+          // desenhar rota até o ponto mais próximo
+          if (rota) map.removeControl(rota);
+          rota = L.Routing.control({
+            waypoints: [
+              L.latLng(lat, lng),
+              L.latLng(coordsMaisProximo[0], coordsMaisProximo[1])
+            ],
+            routeWhileDragging: false,
+            show: false
+          }).addTo(map);
+        });
+      } else {
+        alert("GPS não disponível neste dispositivo.");
+      }
+    }
   </script>
 </body>
 </html>
