@@ -3,20 +3,117 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Alerta de Transporte - Protótipo</title>
-  <link rel="stylesheet" href="style.css">
+  <title>Protótipo Transporte Público</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #111;
+      color: #0f0;
+      text-align: center;
+      margin: 0;
+      padding: 20px;
+    }
+
+    h1 {
+      color: #ff0;
+    }
+
+    label {
+      margin: 10px;
+      display: inline-block;
+    }
+
+    select {
+      margin: 10px;
+      padding: 5px;
+      border-radius: 5px;
+    }
+
+    #map {
+      width: 100%;
+      height: 300px;       /* altura reduzida */
+      max-width: 800px;    /* limite de largura */
+      margin: 20px auto;   /* centraliza */
+      border: 2px solid #0f0;
+      border-radius: 8px;
+    }
+
+    #resultado {
+      margin-top: 20px;
+      font-size: 1.2rem;
+      color: #ff0;
+    }
+  </style>
 </head>
 <body>
-  <h1>🚍 Alerta de Transporte Público</h1>
-  <p>Protótipo: saiba quando o ônibus está chegando no seu ponto.</p>
+  <h1>🚍 Protótipo Alerta de Transporte</h1>
+  <p>Escolha a linha e o ponto para ver os horários e simular o ônibus chegando.</p>
 
-  <div id="mapa">
-    <div class="ponto" style="top: 150px; left: 100px;"></div>
-    <div class="onibus" id="onibus" style="top: 300px; left: 50px;"></div>
+  <div>
+    <label for="linhaSelect">Linha:</label>
+    <select id="linhaSelect">
+      <option value="cabo-arraial">Cabo Frio ↔ Arraial</option>
+      <option value="cabo-buzios">Cabo Frio ↔ Búzios</option>
+    </select>
+
+    <label for="pontoSelect">Ponto:</label>
+    <select id="pontoSelect">
+      <option value="-22.880,-42.018">Rodoviária</option>
+      <option value="-22.875,-42.010">Centro</option>
+      <option value="-22.890,-42.000">Praia do Forte</option>
+    </select>
   </div>
 
-  <div id="alerta">Aguardando ônibus...</div>
+  <div id="map"></div>
+  <div id="resultado">Selecione linha e ponto para ver horários.</div>
 
-  <script src="script.js"></script>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script>
+    const map = L.map('map').setView([-22.880, -42.018], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
+
+    const horarios = {
+      "cabo-arraial": ["08:00", "10:30", "13:00"],
+      "cabo-buzios": ["09:00", "11:30", "14:00"]
+    };
+
+    const resultado = document.getElementById("resultado");
+    const linhaSelect = document.getElementById("linhaSelect");
+    const pontoSelect = document.getElementById("pontoSelect");
+
+    let onibus;
+
+    function atualizarMapa() {
+      const linha = linhaSelect.value;
+      const pontoCoords = pontoSelect.value.split(",");
+      const pontoLatLng = [parseFloat(pontoCoords[0]), parseFloat(pontoCoords[1])];
+
+      L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto escolhido").openPopup();
+
+      resultado.innerText = "Próximos horários: " + horarios[linha].join(", ");
+
+      if (onibus) map.removeLayer(onibus);
+      let lat = pontoLatLng[0] - 0.01;
+      let lng = pontoLatLng[1] - 0.01;
+      onibus = L.marker([lat, lng]).addTo(map).bindPopup("Ônibus " + linha);
+
+      const intervalo = setInterval(() => {
+        lat += 0.001;
+        lng += 0.001;
+        onibus.setLatLng([lat, lng]);
+
+        if (lat >= pontoLatLng[0]) {
+          clearInterval(intervalo);
+          alert("🚨 Ônibus chegou ao ponto!");
+        }
+      }, 1000);
+    }
+
+    linhaSelect.addEventListener("change", atualizarMapa);
+    pontoSelect.addEventListener("change", atualizarMapa);
+  </script>
 </body>
 </html>
