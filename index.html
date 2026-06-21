@@ -3,101 +3,176 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Simulação Ônibus</title>
+  <title>Protótipo Transporte Público</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css"/>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.css"/>
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      background: #111;
-      color: #0f0;
-      text-align: center;
-      margin: 0;
-      padding: 20px;
-    }
-
-    h1 {
-      color: #ff0;
-    }
-
-    #container {
-      position: relative;
-      width: 400px;
-      height: 400px;
-      margin: 20px auto;
-      border: 2px solid #0f0;
-      border-radius: 8px;
-      background: #222;
-    }
-
-    #onibus {
-      position: absolute;
-      top: 300px; /* posição inicial */
-      left: 160px;
-      font-size: 2rem;
-    }
-
-    #alerta {
-      margin-top: 20px;
-      font-size: 1.2rem;
-      color: #ff0;
-    }
-
-    button {
-      margin-top: 20px;
-      padding: 10px 20px;
-      border: none;
-      border-radius: 5px;
-      background: #0f0;
-      color: #111;
-      font-weight: bold;
-      cursor: pointer;
-    }
+    body { background:#111; color:#0f0; font-family:Arial; text-align:center; margin:0; padding:20px; }
+    h1 { color:#ff0; }
+    #map { width:100%; height:300px; max-width:800px; margin:20px auto; border:2px solid #0f0; border-radius:8px; }
+    #resultado { margin-top:20px; font-size:1.2rem; color:#ff0; }
+    #cronometro { margin-top:10px; font-size:1rem; color:#0ff; }
+    select, button { margin:10px; padding:8px; border:none; border-radius:5px; cursor:pointer; }
+    button { background:#0f0; color:#111; font-weight:bold; }
   </style>
 </head>
 <body>
-  <h1>🚍 Simulação de Ônibus</h1>
-  <div id="container">
-    <div id="onibus">🚌</div>
+  <h1>🚍 Protótipo Alerta de Transporte</h1>
+  <p>Escolha a linha e o ponto para ver os horários e simular o ônibus chegando.</p>
+
+  <div>
+    <label for="linhaSelect">Linha:</label>
+    <select id="linhaSelect">
+      <option value="cabo-arraial">Cabo Frio ↔ Arraial</option>
+      <option value="cabo-buzios">Cabo Frio ↔ Búzios</option>
+      <option value="cabo-tangara">Cabo Frio ↔ Tangará</option>
+    </select>
+
+    <label for="pontoSelect">Ponto:</label>
+    <select id="pontoSelect">
+      <option value="-22.880,-42.018">Rodoviária</option>
+      <option value="-22.875,-42.010">Centro</option>
+      <option value="-22.890,-42.000">Praia do Forte</option>
+      <option value="-22.870,-42.030">Tangará</option>
+      <option value="-22.850,-42.020">Shopping Park Lagos</option>
+    </select>
   </div>
-  <div id="alerta"></div>
-  <button id="btnIniciar">Iniciar ônibus</button>
 
+  <button onclick="ativarGPS()">📍 Usar GPS em tempo real</button>
+
+  <div id="map"></div>
+  <div id="resultado">Selecione linha e ponto para ver horários.</div>
+  <div id="cronometro"></div>
+
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet-routing-machine/dist/leaflet-routing-machine.js"></script>
   <script>
-    let posY = 300;
-    const onibus = document.getElementById("onibus");
-    const alerta = document.getElementById("alerta");
-    let intervalo = null;
+    const map = L.map('map').setView([-22.880, -42.018], 13);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap'
+    }).addTo(map);
 
-    function moverOnibus() {
-      posY -= 5;
-      onibus.style.top = posY + "px";
+    const horarios = {
+      "cabo-arraial": ["08:00", "10:30", "13:00"],
+      "cabo-buzios": ["09:00", "11:30", "14:00"],
+      "cabo-tangara": ["07:30", "12:00", "17:00"]
+    };
 
-      if (posY <= 160 && posY > 140) {
-        alerta.innerText = "🚨 Ônibus chegando ao ponto!";
-      }
+    const pontos = {
+      "Rodoviária": [-22.880, -42.018],
+      "Centro": [-22.875, -42.010],
+      "Praia do Forte": [-22.890, -42.000],
+      "Tangará": [-22.870, -42.030],
+      "Shopping Park Lagos": [-22.850, -42.020]
+    };
 
-      if (posY <= 140) {
-        alerta.innerText = "✅ Ônibus chegou!";
-        clearInterval(intervalo);
-        intervalo = null;
-      }
+    for (const [nome, coords] of Object.entries(pontos)) {
+      L.circleMarker(coords, {radius:5, color:'orange'}).addTo(map).bindPopup("Ponto: " + nome);
     }
 
-    function iniciarOnibus() {
-      // resetar posição e alerta
-      posY = 300;
-      onibus.style.top = posY + "px";
-      alerta.innerText = "";
+    const resultado = document.getElementById("resultado");
+    const cronometro = document.getElementById("cronometro");
+    const linhaSelect = document.getElementById("linhaSelect");
+    const pontoSelect = document.getElementById("pontoSelect");
 
-      // se já tiver intervalo rodando, limpa antes
-      if (intervalo) {
-        clearInterval(intervalo);
-      }
+    let onibus;
+    let usuarioMarker = null;
+    let rota = null;
+    let pontoEscolhidoMarker = null;
+    let intervaloCronometro = null;
 
-      // inicia novo intervalo
-      intervalo = setInterval(moverOnibus, 500);
+    function atualizarMapa() {
+      const linha = linhaSelect.value;
+      const pontoCoords = pontoSelect.value.split(",");
+      const pontoLatLng = [parseFloat(pontoCoords[0]), parseFloat(pontoCoords[1])];
+
+      if (pontoEscolhidoMarker) map.removeLayer(pontoEscolhidoMarker);
+      pontoEscolhidoMarker = L.marker(pontoLatLng).addTo(map).bindPopup("Seu ponto escolhido").openPopup();
+
+      resultado.innerText = "Próximos horários: " + horarios[linha].join(", ");
+
+      if (onibus) map.removeLayer(onibus);
+      let lat = pontoLatLng[0] - 0.01;
+      let lng = pontoLatLng[1] - 0.01;
+      onibus = L.marker([lat, lng]).addTo(map).bindPopup("Ônibus " + linha);
+
+      let segundos = 20; // tempo estimado até chegada
+      cronometro.innerText = "⏱ Tempo estimado até chegada: " + segundos + "s";
+
+      if (intervaloCronometro) clearInterval(intervaloCronometro);
+      intervaloCronometro = setInterval(() => {
+        segundos--;
+        cronometro.innerText = "⏱ Tempo estimado até chegada: " + segundos + "s";
+        if (segundos <= 0) {
+          clearInterval(intervaloCronometro);
+          cronometro.innerText = "✅ Ônibus chegou!";
+        }
+      }, 1000);
+
+      const intervalo = setInterval(() => {
+        lat += 0.001;
+        lng += 0.001;
+        onibus.setLatLng([lat, lng]);
+
+        if (lat >= pontoLatLng[0]) {
+          clearInterval(intervalo);
+          alert("🚨 Ônibus chegou ao ponto!");
+        }
+      }, 1000);
     }
 
-    document.getElementById("btnIniciar").addEventListener("click", iniciarOnibus);
+    linhaSelect.addEventListener("change", atualizarMapa);
+    pontoSelect.addEventListener("change", atualizarMapa);
+
+    function calcularDistancia(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                Math.cos(lat1 * Math.PI/180) * Math.cos(lat2 * Math.PI/180) *
+                Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+
+    function ativarGPS() {
+      if (navigator.geolocation) {
+        navigator.geolocation.watchPosition(pos => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          if (usuarioMarker) map.removeLayer(usuarioMarker);
+          usuarioMarker = L.marker([lat, lng]).addTo(map).bindPopup("📍 Você está aqui").openPopup();
+
+          let menorDist = Infinity;
+          let pontoMaisProximo = null;
+          let coordsMaisProximo = null;
+
+          for (const [nome, coords] of Object.entries(pontos)) {
+            const dist = calcularDistancia(lat, lng, coords[0], coords[1]);
+            if (dist < menorDist) {
+              menorDist = dist;
+              pontoMaisProximo = nome;
+              coordsMaisProximo = coords;
+            }
+          }
+
+          resultado.innerText = "📍 Ponto mais próximo: " + pontoMaisProximo + " (" + menorDist.toFixed(0) + " m)";
+
+          if (rota) map.removeControl(rota);
+          rota = L.Routing.control({
+            waypoints: [
+              L.latLng(lat, lng),
+              L.latLng(coordsMaisProximo[0], coordsMaisProximo[1])
+            ],
+            routeWhileDragging: false,
+            show: false
+          }).addTo(map);
+        });
+      } else {
+        alert("GPS não disponível neste dispositivo.");
+      }
+    }
   </script>
 </body>
 </html>
